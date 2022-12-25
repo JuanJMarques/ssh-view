@@ -49,9 +49,24 @@ enum Commands {
         #[clap(short, long, value_parser, value_name = "command", default_value_t = String::from("ssh"))]
         command: String,
     },
+    /// launches the scp command for the selected index of the table or the specified connection mane in the table, use "con:"<path> to be replaced with the connection to the selected ssh server
+    Copy {
+        #[clap(value_parser, value_name = "Selection")]
+        selection: String,
+
+        #[clap(value_parser, value_name = "From")]
+        from: String,
+
+        #[clap(value_parser, value_name = "To")]
+        to: String,
+
+        #[clap(short, long, value_parser, value_name = "command", default_value_t = String::from("scp"))]
+        command: String,
+
+    }
 }
 
-fn main() {
+fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
     let mut buf = env::home_dir().unwrap();
@@ -67,7 +82,7 @@ fn main() {
 
     if cli.command.is_some() {
         let data = read_ssh_config_file(config_file);
-        match &cli.command {
+        return match &cli.command {
             Some(Commands::Show) => {
                 if !(config_file.exists() && config_file.is_file()) {
                     panic!("couldnt open {:#?}", config_file.as_os_str())
@@ -82,7 +97,7 @@ fn main() {
                                 table_cell.with_style(Attr::Bold)
                                     .with_style(Attr::ForegroundColor(color::GREEN))
                             } else {
-                                table_cell.with_style(Attr::ForegroundColor(color::BRIGHT_BLUE))
+                                table_cell.with_style(Attr::ForegroundColor(color::CYAN))
                             }
                         }).collect::<Vec<Cell>>()));
                         if header {
@@ -91,7 +106,7 @@ fn main() {
                     }
                     // let table = Table::from(data.iter());
                     table.printstd();
-                }).expect("error generating the matrix");
+                })
             }
             Some(Commands::Use { selection, args , command}) => {
                 data.map(|data| {
@@ -110,8 +125,7 @@ fn main() {
                         .unwrap()
                         .wait()
                         .unwrap();
-                    // panic!("this option is not implemented");
-                }).unwrap();
+                })
             }
             Some(Commands::Export { selection, args, command }) => {
                 data.map(|data| {
@@ -122,11 +136,34 @@ fn main() {
                         None => String::new()
                     };
                     clipboard.set_contents(format!("{} {} {}",command, connection_name, args_str)).unwrap();
-                }).unwrap();
+                })
             }
-            None => {}
-        }
+            Some(Commands::Copy {selection, from, to, command}) => {
+                data.map(|data| {
+                    let connection_name = get_connection_name(data, selection);
+                    let mut command = Command::new(command);
+                    let from = from.replace("con:", format!("{}:", connection_name).as_str());
+                    let to = to.replace("con:", format!("{}:", connection_name).as_str());
+                    let command = command
+                        .arg(from)
+                        .arg(to)
+                        .stdin(Stdio::inherit())
+                        .stdout(Stdio::inherit())
+                        .stderr(Stdio::inherit());
+                    command
+                        .spawn()
+                        .unwrap()
+                        .wait()
+                        .unwrap();
+                })
+            }
+            None => {
+                return Ok(());
+            }
+        };
     }
+    Ok(())
+}
 
     fn get_connection_name(data: Vec<Vec<String>>, index: &String) -> String {
         match index.trim().parse::<usize>() {
@@ -195,4 +232,4 @@ fn main() {
                 data_with_title
             })
     }
-}
+
