@@ -9,6 +9,9 @@ This is a simple utility for parsing, showing and integrate the info from the `$
  
 
 ### Install
+Download the binaries from the [releases](https://github.com/JuanJMarques/ssh-view/releases/releases/latest) page.
+
+### Build
 
 ```
 git clone https://github.com/JuanJMarques/ssh-view.git
