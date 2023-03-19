@@ -1,7 +1,7 @@
 extern crate core;
 
 use clap::{Parser, Subcommand};
-use clipboard::{ClipboardContext, ClipboardProvider};
+use arboard::Clipboard;
 use prettytable::{color, Attr, Cell, Row, Table};
 use std::env;
 use std::fs::OpenOptions;
@@ -78,7 +78,7 @@ enum Commands {
 fn main() -> Result<(), Error> {
     let cli = Cli::parse();
 
-    let mut buf = env::home_dir().unwrap();
+    #[allow(deprecated)] let mut buf = env::home_dir().unwrap();
     buf.push(Path::new(".ssh/config"));
     let config_file = match cli.config {
         Some(path) => path,
@@ -148,13 +148,13 @@ fn main() -> Result<(), Error> {
                 command,
             }) => data.map(|data| {
                 let connection_name = get_connection_name(data, selection);
-                let mut clipboard: ClipboardContext = ClipboardProvider::new().unwrap();
+                let mut clipboard = Clipboard::new().unwrap();
                 let args_str = match args {
                     Some(args) => args.join(" "),
                     None => String::new(),
                 };
                 clipboard
-                    .set_contents(format!("{} {} {}", command, connection_name, args_str))
+                    .set_text(format!("{} {} {}", command, connection_name, args_str))
                     .unwrap();
             }),
             Some(Commands::Copy {
