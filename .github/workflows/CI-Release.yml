@@ -86,7 +86,7 @@ jobs:
       -   name: Security Audit
           uses: actions-rs/audit-check@v1
           with:
-            token: ${{ secrets.GITHUB_TOKEN }}
+            token: ${{ secrets.PAT_TOKEN }}
   create_release:
     runs-on: ubuntu-latest
     steps:
@@ -94,10 +94,10 @@ jobs:
         id: create_release
         with:
           tag_name: ${{ github.ref }}
-          release_name: Release ${{ github.ref }}
+          name: Release ${{ github.ref }}
           draft: false
           prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.PAT_TOKEN }}
     outputs:
       upload_url: ${{ steps.create_release.outputs.upload_url }}
   build_release_windows:
@@ -122,7 +122,7 @@ jobs:
             args: --release
       -   uses: actions/upload-release-asset@v1
           env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           with:
             upload_url: ${{ needs.create_release.outputs.upload_url }}
             asset_path: target/release/shred.${{ matrix.archive }}
@@ -148,7 +148,7 @@ jobs:
             args: --release
       -   uses: actions/upload-release-asset@v1
           env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           with:
             upload_url: ${{ needs.create_release.outputs.upload_url }}
             asset_path: target/release/shred
@@ -174,7 +174,7 @@ jobs:
             args: --release
       -   uses: actions/upload-release-asset@v1
           env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+            PAT_TOKEN: ${{ secrets.PAT_TOKEN }}
           with:
             upload_url: ${{ needs.create_release.outputs.upload_url }}
             asset_path: target/release/shred
