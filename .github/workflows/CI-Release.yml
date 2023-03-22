@@ -159,6 +159,7 @@ jobs:
     permissions:
       contents: write
     steps:
+      - run: pwd
       - uses: actions/download-artifact@v2
         with:
           name: ssh-view-linux
