@@ -89,13 +89,13 @@ jobs:
             token: ${{ secrets.GITHUB_TOKEN }}
   create_release:
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
     steps:
       - uses: softprops/action-gh-release@v1
         id: create_release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        permissions:
-          contents: write
         with:
           tag_name: ${{ github.ref }}
           name: Release ${{ github.ref }}
