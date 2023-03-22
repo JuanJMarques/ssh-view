@@ -87,27 +87,9 @@ jobs:
           uses: actions-rs/audit-check@v1
           with:
             token: ${{ secrets.GITHUB_TOKEN }}
-  create_release:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    steps:
-      - uses: softprops/action-gh-release@v1
-        id: create_release
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: ${{ github.ref }}
-          name: Release ${{ github.ref }}
-          draft: false
-          prerelease: false
-          token: ${{ secrets.GITHUB_TOKEN }}
-    outputs:
-      upload_url: ${{ steps.create_release.outputs.upload_url }}
   build_release_windows:
     name: release_windows
     runs-on: windows-latest
-    needs: create_release
     strategy:
       matrix:
         rust:
@@ -124,18 +106,13 @@ jobs:
           with:
             command: build
             args: --release
-      -   uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:
-            upload_url: ${{ needs.create_release.outputs.upload_url }}
-            asset_path: target/release/ssh-view.${{ matrix.archive }}
-            asset_name: ssh-view-windows.${{ matrix.archive }}
-            asset_content_type: application/binary
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cli-binary-windows
+          path: target/release/ssh-view.${{ matrix.archive }}
   build_release_linux:
     name: release_linux
     runs-on: ubuntu-latest
-    needs: create_release
     strategy:
       matrix:
         rust:
@@ -150,18 +127,13 @@ jobs:
           with:
             command: build
             args: --release
-      -   uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          with:
-            upload_url: ${{ needs.create_release.outputs.upload_url }}
-            asset_path: target/release/ssh-view
-            asset_name: ssh-view-linux
-            asset_content_type: application/binary
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cli-binary-linux
+          path: target/release/ssh-view
   build_release_macos:
     name: release_macos
     runs-on: macos-latest
-    needs: create_release
     strategy:
       matrix:
         rust:
@@ -176,11 +148,43 @@ jobs:
           with:
             command: build
             args: --release
-      -   uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      -   uses: actions/upload-artifact@v2
           with:
-            upload_url: ${{ needs.create_release.outputs.upload_url }}
-            asset_path: target/release/ssh-view
-            asset_name: ssh-view-macos
-            asset_content_type: application/binary
+            name: cli-binary-macos
+            path: target/release/ssh-view
+
+  create_release:
+    runs-on: ubuntu-latest
+    needs: [build_release_windows, build_release_linux, build_release_macos]
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v2
+        with:
+          name: cli-binary-linux
+          path: cli-binary-linux
+      - uses: actions/download-artifact@v2
+        with:
+          name: cli-binary-windows
+          path: cli-binary-windows
+      - uses: actions/download-artifact@v2
+        with:
+          name: cli-binary-macos
+          path: cli-binary-macos
+      - run:
+          mv cli-binary-linux/ssh-view cli-binary-linux/ssh-view-linux
+          mv cli-binary-macos/ssh-view cli-binary-macos/ssh-view-macos
+      - uses: softprops/action-gh-release@v1
+        id: create_release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          name: Release ${{ github.ref }}
+          draft: false
+          prerelease: false
+          token: ${{ secrets.GITHUB_TOKEN }}
+          files: |
+            cli-binary-linux/*
+            cli-binary-windows/*
+            cli-binary-windows/*
