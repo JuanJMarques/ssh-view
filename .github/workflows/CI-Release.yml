@@ -108,7 +108,7 @@ jobs:
             args: --release
       - uses: actions/upload-artifact@v2
         with:
-          name: cli-binary-windows
+          name: ssh-view.${{ matrix.archive }}
           path: target/release/ssh-view.${{ matrix.archive }}
   build_release_linux:
     name: release_linux
@@ -129,7 +129,7 @@ jobs:
             args: --release
       - uses: actions/upload-artifact@v2
         with:
-          name: cli-binary-linux
+          name: ssh-view-linux
           path: target/release/ssh-view
   build_release_macos:
     name: release_macos
@@ -150,7 +150,7 @@ jobs:
             args: --release
       -   uses: actions/upload-artifact@v2
           with:
-            name: cli-binary-macos
+            name: ssh-view-macos
             path: target/release/ssh-view
 
   create_release:
@@ -161,19 +161,16 @@ jobs:
     steps:
       - uses: actions/download-artifact@v2
         with:
-          name: cli-binary-linux
-          path: cli-binary-linux
+          name: ssh-view-linux
+          path: ssh-view-linux
       - uses: actions/download-artifact@v2
         with:
-          name: cli-binary-windows
-          path: cli-binary-windows
+          name: ssh-view.exe
+          path: ssh-view.exe
       - uses: actions/download-artifact@v2
         with:
-          name: cli-binary-macos
-          path: cli-binary-macos
-      - run:
-          mv cli-binary-linux/ssh-view cli-binary-linux/ssh-view-linux
-          mv cli-binary-macos/ssh-view cli-binary-macos/ssh-view-macos
+          name: ssh-view-macos
+          path: ssh-view-macos
       - uses: softprops/action-gh-release@v1
         id: create_release
         env:
@@ -185,6 +182,6 @@ jobs:
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            cli-binary-linux/*
-            cli-binary-windows/*
-            cli-binary-windows/*
+            ssh-view-linux
+            ssh-view.exe
+            ssh-view-macos
