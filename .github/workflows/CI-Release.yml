@@ -173,12 +173,6 @@ jobs:
         with:
           name: ssh-view-macos
           path: ssh-view-macos
-      - run: pwd
-      - run: ls -lash
-      - run: ls -lash ssh-view-linux/
-      - run: ls -lash ssh-view-windows/
-      - run: ls -lash ssh-view-macos/
-      - run: tree -d .
       - uses: softprops/action-gh-release@v1
         id: create_release
         env:
