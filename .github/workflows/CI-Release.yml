@@ -148,6 +148,7 @@ jobs:
           with:
             command: build
             args: --release
+      -   run: mv target/release/ssh-view target/release/ssh-view-macos
       -   uses: actions/upload-artifact@v2
           with:
             name: ssh-view-macos
