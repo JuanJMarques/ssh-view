@@ -162,15 +162,15 @@ jobs:
       - uses: actions/download-artifact@v2
         with:
           name: ssh-view-linux
-          path: ssh-view-linux.zip
+          path: ssh-view-linux
       - uses: actions/download-artifact@v2
         with:
           name: ssh-view.exe
-          path: ssh-view.exe.zip
+          path: ssh-view.exe
       - uses: actions/download-artifact@v2
         with:
           name: ssh-view-macos
-          path: ssh-view-macos.zip
+          path: ssh-view-macos
       - run: pwd
       - run: ls -lash
       - run: tree -d .
@@ -185,6 +185,6 @@ jobs:
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            ssh-view-linux.zip
-            ssh-view.exe.zip
-            ssh-view-macos.zip
+            ssh-view-linux/*
+            ssh-view.exe/*
+            ssh-view-macos/*
