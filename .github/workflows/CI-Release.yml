@@ -108,7 +108,7 @@ jobs:
             args: --release
       - uses: actions/upload-artifact@v2
         with:
-          name: ssh-view.${{ matrix.archive }}
+          name: ssh-view-windows
           path: target/release/ssh-view.${{ matrix.archive }}
   build_release_linux:
     name: release_linux
@@ -127,6 +127,7 @@ jobs:
           with:
             command: build
             args: --release
+      -   run: strip target/release/ssh-view
       - uses: actions/upload-artifact@v2
         with:
           name: ssh-view-linux
@@ -148,10 +149,11 @@ jobs:
           with:
             command: build
             args: --release
+      -   run: mv target/release/ssh-view target/release/ssh-view-macos
       -   uses: actions/upload-artifact@v2
           with:
             name: ssh-view-macos
-            path: target/release/ssh-view
+            path: target/release/ssh-view-macos
 
   create_release:
     runs-on: ubuntu-latest
@@ -159,16 +161,14 @@ jobs:
     permissions:
       contents: write
     steps:
-      - run: pwd
-      - run: ls -lash
       - uses: actions/download-artifact@v2
         with:
           name: ssh-view-linux
           path: ssh-view-linux
       - uses: actions/download-artifact@v2
         with:
-          name: ssh-view.exe
-          path: ssh-view.exe
+          name: ssh-view-windows
+          path: ssh-view-windows
       - uses: actions/download-artifact@v2
         with:
           name: ssh-view-macos
@@ -184,6 +184,6 @@ jobs:
           prerelease: false
           token: ${{ secrets.GITHUB_TOKEN }}
           files: |
-            ssh-view-linux
-            ssh-view.exe
-            ssh-view-macos
+            ssh-view-linux/*
+            ssh-view-windows/*
+            ssh-view-macos/*
