@@ -75,7 +75,7 @@ enum Commands {
         command: String,
     },
 
-    /// Adds a new entry to the config file.
+    /// Adds a new entry to the ssh config file.
     Add {
         /// Specifies the host name to store the new entry
         #[clap(value_parser, value_name = "Host")]
@@ -113,7 +113,7 @@ enum Commands {
         )]
         identities_only: bool,
     },
-    /// Deletes an entry from the host file
+    /// Deletes an entry from the ssh config file
     Delete {
         /// Index of the selected entry to delete
         #[clap(value_parser, value_name = "Selection")]
