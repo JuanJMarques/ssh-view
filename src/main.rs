@@ -1,12 +1,13 @@
 extern crate core;
 
-use clap::{Parser, Subcommand};
 use arboard::Clipboard;
+use clap::{Parser, Subcommand};
 use prettytable::{color, Attr, Cell, Row, Table};
 use std::env;
-use std::fs::OpenOptions;
-use std::io::Error;
-use std::io::Read;
+use std::error::Error;
+use std::fs::{File, OpenOptions};
+use std::io::Write;
+use std::io::{BufRead, BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::string::String;
@@ -73,12 +74,58 @@ enum Commands {
         #[clap(short, long, value_parser, value_name = "command", default_value_t = String::from("scp"))]
         command: String,
     },
+
+    /// Adds a new entry to the config file.
+    Add {
+        /// Specifies the host name to store the new entry
+        #[clap(value_parser, value_name = "Host")]
+        host: String,
+
+        /// Specifies the real host name to log into
+        #[clap(value_parser, value_name = "HostName")]
+        host_name: String,
+
+        /// Specifies the user to log in as
+        #[clap(value_parser, value_name = "User")]
+        user: String,
+
+        /// Specifies the port number to connect on the remote host.
+        #[clap(
+            short,
+            long,
+            value_parser,
+            value_name = "port",
+            default_value_t = 22u32
+        )]
+        port: u32,
+
+        /// Specifies a file from which the user's authentication identity is read
+        #[clap(short, long, value_parser, value_name = "IdentityFile")]
+        identity_file: Option<String>,
+
+        /// Specifies that ssh should only use the identity keys configured in the ssh_config files, even if ssh-agent offers more identities.
+        #[clap(
+            short('y'),
+            long,
+            value_parser,
+            value_name = "IdentitiesOnly",
+            default_value_t = false
+        )]
+        identities_only: bool,
+    },
+    /// Deletes an entry from the host file
+    Delete {
+        /// Index of the selected entry to delete
+        #[clap(value_parser, value_name = "Selection")]
+        selection: String,
+    },
 }
 
-fn main() -> Result<(), Error> {
+fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
-    #[allow(deprecated)] let mut buf = env::home_dir().unwrap();
+    #[allow(deprecated)]
+    let mut buf = env::home_dir().unwrap();
     buf.push(Path::new(".ssh/config"));
     let config_file = match cli.config {
         Some(path) => path,
@@ -175,10 +222,111 @@ fn main() -> Result<(), Error> {
                     .stderr(Stdio::inherit());
                 command.spawn().unwrap().wait().unwrap();
             }),
+            Some(Commands::Add {
+                host,
+                host_name,
+                user,
+                port,
+                identity_file,
+                identities_only,
+            }) => {
+                if !(config_file.exists() && config_file.is_file()) {
+                    panic!("couldnt find {:#?}", config_file.as_os_str())
+                }
+                let host_file = OpenOptions::new()
+                    .write(true)
+                    .append(true)
+                    .open(config_file);
+                match host_file {
+                    Ok(mut host_file) => add_entry(
+                        &mut host_file,
+                        host,
+                        host_name,
+                        user,
+                        port,
+                        identity_file,
+                        identities_only,
+                    ),
+                    Err(e) => Err(Box::new(e)),
+                }
+            }
+            Some(Commands::Delete { selection }) => selection
+                .trim()
+                .parse::<usize>()
+                // .map(|selecte_index| selecte_index - 1)
+                .map(|selected_index| selected_index as i32)
+                .map(|mut selected_index| {
+                    let read_file =
+                        OpenOptions::new()
+                            .read(true)
+                            .open(config_file)
+                            .map(|host_file| {
+                                let lines = BufReader::new(host_file).lines();
+                                let mut copy = true;
+                                let mut new_host_contents = String::new();
+                                use std::fmt::Write;
+                                for line in lines {
+                                    if let Ok(line) = line {
+                                        if line.starts_with("Host ") {
+                                            if selected_index != 0 {
+                                                copy = true;
+                                                writeln!(new_host_contents, "").expect("");
+                                            } else {
+                                                copy = false;
+                                            }
+                                            selected_index -= 1;
+                                        }
+                                        if copy {
+                                            writeln!(new_host_contents, "{line}").expect("");
+                                        }
+                                    }
+                                }
+                                new_host_contents
+                            });
+                    if let Ok(new_host_contents) = read_file {
+                        OpenOptions::new()
+                            .write(true)
+                            .open(config_file)
+                            .map(|host_file| {
+                                host_file.set_len(0).unwrap();
+                                BufWriter::new(host_file).write_all(new_host_contents.as_bytes())
+                            })
+                            .unwrap()
+                            .unwrap();
+                    }
+                    ()
+                })
+                .map_err(|e| Box::new(e) as Box<dyn Error>),
             None => {
                 return Ok(());
             }
         };
+    }
+    Ok(())
+}
+
+fn add_entry(
+    host_file: &mut File,
+    host: &String,
+    host_name: &String,
+    user: &String,
+    port: &u32,
+    identity_file: &Option<String>,
+    identities_only: &bool,
+) -> Result<(), Box<dyn Error>> {
+    writeln!(host_file, "")?;
+    writeln!(
+        host_file,
+        "Host {host}
+    HostName {host_name}
+    user {user}
+    port {port}"
+    )?;
+    if let Some(identity_file_path) = identity_file {
+        writeln!(host_file, "    IdentityFile {identity_file_path}")?;
+    }
+    if *identities_only {
+        writeln!(host_file, "    IdentityFilesOnly yes")?;
     }
     Ok(())
 }
@@ -204,7 +352,7 @@ fn get_connection_name(data: Vec<Vec<String>>, index: &String) -> String {
     }
 }
 
-fn read_ssh_config_file(path: &Path) -> Result<Vec<Vec<String>>, Error> {
+fn read_ssh_config_file(path: &Path) -> Result<Vec<Vec<String>>, Box<dyn Error>> {
     OpenOptions::new()
         .read(true)
         .open(path)
@@ -252,4 +400,5 @@ fn read_ssh_config_file(path: &Path) -> Result<Vec<Vec<String>>, Error> {
             });
             data_with_title
         })
+        .map_err(|e| Box::new(e) as Box<dyn Error>)
 }
