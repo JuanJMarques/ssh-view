@@ -3,7 +3,6 @@ extern crate core;
 use arboard::Clipboard;
 use clap::{Parser, Subcommand};
 use prettytable::{color, Attr, Cell, Row, Table};
-use std::env;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -11,6 +10,7 @@ use std::io::{BufRead, BufReader, BufWriter, Read};
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::string::String;
+use std::{env, io};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -265,36 +265,51 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 let mut copy = true;
                                 let mut new_host_contents = String::new();
                                 use std::fmt::Write;
-                                for line in lines {
-                                    if let Ok(line) = line {
-                                        if line.starts_with("Host ") {
-                                            if selected_index != 0 {
-                                                copy = true;
-                                                writeln!(new_host_contents, "").expect("");
-                                            } else {
-                                                copy = false;
-                                            }
-                                            selected_index -= 1;
+                                let mut selected_host = None;
+                                for line in lines.flatten() {
+                                    if line.starts_with("Host ") {
+                                        if selected_index != 0 {
+                                            copy = true;
+                                            writeln!(new_host_contents).expect("");
+                                        } else {
+                                            selected_host = Some(
+                                                line.replace("Host ", "").trim().to_string(),
+                                            );
+                                            copy = false;
                                         }
-                                        if copy {
-                                            writeln!(new_host_contents, "{line}").expect("");
-                                        }
+                                        selected_index -= 1;
+                                    }
+                                    if copy {
+                                        writeln!(new_host_contents, "{line}").expect("");
                                     }
                                 }
-                                new_host_contents
+                                let mut confirmation = false;
+                                if let Some(selected_host) = selected_host {
+                                    println!(
+                                    "The host \"{selected_host}\" will be deleted, are you sure?"
+                                );
+                                    println!("Type \"yes\" to confirm");
+                                    let stdin = io::stdin();
+                                    let mut response = String::new();
+                                    stdin.read_line(&mut response).unwrap();
+                                    confirmation = response.trim() == "yes";
+                                }
+                                (new_host_contents, confirmation)
                             });
-                    if let Ok(new_host_contents) = read_file {
-                        OpenOptions::new()
-                            .write(true)
-                            .open(config_file)
-                            .map(|host_file| {
-                                host_file.set_len(0).unwrap();
-                                BufWriter::new(host_file).write_all(new_host_contents.as_bytes())
-                            })
-                            .unwrap()
-                            .unwrap();
+                    if let Ok((new_host_contents, confirmation)) = read_file {
+                        if confirmation {
+                            OpenOptions::new()
+                                .write(true)
+                                .open(config_file)
+                                .map(|host_file| {
+                                    host_file.set_len(0).unwrap();
+                                    BufWriter::new(host_file)
+                                        .write_all(new_host_contents.as_bytes())
+                                })
+                                .unwrap()
+                                .unwrap();
+                        }
                     }
-                    ()
                 })
                 .map_err(|e| Box::new(e) as Box<dyn Error>),
             None => {
@@ -314,7 +329,7 @@ fn add_entry(
     identity_file: &Option<String>,
     identities_only: &bool,
 ) -> Result<(), Box<dyn Error>> {
-    writeln!(host_file, "")?;
+    writeln!(host_file)?;
     writeln!(
         host_file,
         "Host {host}
