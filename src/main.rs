@@ -3,6 +3,7 @@ extern crate core;
 use arboard::Clipboard;
 use clap::{Parser, Subcommand};
 use prettytable::{color, Attr, Cell, Row, Table};
+use regex::Regex;
 use std::error::Error;
 use std::fs::{File, OpenOptions};
 use std::io::Write;
@@ -27,7 +28,10 @@ struct Cli {
 #[derive(Subcommand)]
 enum Commands {
     /// Shows the current configuration
-    Show,
+    Show {
+        /// Optional filter for the connections
+        filter: Option<String>
+    },
     /// launches the ssh command for the selected index of the table or the specified connection name in the table
     Use {
         /// Index of the selected connection
@@ -125,7 +129,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let cli = Cli::parse();
 
     #[allow(deprecated)]
-    let mut buf = env::home_dir().unwrap();
+        let mut buf = env::home_dir().unwrap();
     buf.push(Path::new(".ssh/config"));
     let config_file = match cli.config {
         Some(path) => path,
@@ -137,13 +141,29 @@ fn main() -> Result<(), Box<dyn Error>> {
     let config_file = config_file.as_path();
 
     if cli.command.is_some() {
-        let data = read_ssh_config_file(config_file);
+        let data: Result<Vec<Vec<String>>, Box<dyn Error>> = read_ssh_config_file(config_file);
         return match &cli.command {
-            Some(Commands::Show) => {
+            Some(Commands::Show {
+                     filter
+                 }) => {
                 if !(config_file.exists() && config_file.is_file()) {
                     panic!("couldnt open {:#?}", config_file.as_os_str())
                 }
+                let filter = filter.clone().map(|filt| format!(".*{filt}.*")).unwrap_or(String::from(r".*"));
+                let filter = Regex::new(filter.as_str()).unwrap();
                 data.map(|data| {
+                    let mut header = true;
+                    data.iter().filter(|row| {
+                        let old_header = header;
+                        if header {
+                            header = false;
+                        }
+                        row.iter().any(|cell| old_header || filter.is_match(cell))
+                    })
+                        .map(|row| row.to_owned())
+                        .collect::<Vec<Vec<String>>>()
+                })
+                    .map(|data| {
                     let mut table = Table::new();
                     let mut header = true;
                     for row in data {
