@@ -58,6 +58,16 @@ $ssh-view show
 +-------+-----------+--------------+--------+
 ```
 
+list server filtering by search pattern
+```
+$ssh-view show 2
++-------+-----------+--------------+--------+
+| Index | HostName  | Host         | User   |
++-------+-----------+--------------+--------+
+| 1     | test2     | 192.168.90.2 | ubuntu |
++-------+-----------+--------------+--------+
+```
+
 connect to a server
 ```
 $ssh-view use 0

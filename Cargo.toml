@@ -1,6 +1,6 @@
 [package]
 name = "ssh-view"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -9,3 +9,4 @@ edition = "2021"
 clap = { version = "3.2.15", features = ["derive"] }
 arboard = "3.2.0"
 prettytable-rs = "0.10.0"
+regex = "1.7.3"
