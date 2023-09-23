@@ -12,6 +12,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::string::String;
 use std::{env, io};
+use std::fmt::{Display, Formatter};
 
 #[derive(Parser)]
 #[clap(author, version, about, long_about = None)]
@@ -24,6 +25,28 @@ struct Cli {
     #[clap(subcommand)]
     command: Option<Commands>,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct TunnelModeError {
+    message: String,
+}
+
+impl TunnelModeError {
+    pub fn new(message: &str) -> Self {
+        TunnelModeError {
+            message: message.to_string()
+        }
+    }
+}
+
+impl Error for TunnelModeError {}
+
+impl Display for TunnelModeError {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Tunnel Mode Error: {}", self.message)
+    }
+}
+
 
 #[derive(Subcommand)]
 enum Commands {
@@ -95,11 +118,11 @@ enum Commands {
 
         /// Specifies the port number to connect on the remote host.
         #[clap(
-            short,
-            long,
-            value_parser,
-            value_name = "port",
-            default_value_t = 22u32
+        short,
+        long,
+        value_parser,
+        value_name = "port",
+        default_value_t = 22u32
         )]
         port: u32,
 
@@ -109,11 +132,11 @@ enum Commands {
 
         /// Specifies that ssh should only use the identity keys configured in the ssh_config files, even if ssh-agent offers more identities.
         #[clap(
-            short('y'),
-            long,
-            value_parser,
-            value_name = "IdentitiesOnly",
-            default_value_t = false
+        short('y'),
+        long,
+        value_parser,
+        value_name = "IdentitiesOnly",
+        default_value_t = false
         )]
         identities_only: bool,
     },
@@ -122,6 +145,59 @@ enum Commands {
         /// Index of the selected entry to delete
         #[clap(value_parser, value_name = "Selection")]
         selection: String,
+    },
+    /// makes a ssh tunnel for the selected index of the table or the specified connection name in the table
+    Tunnel {
+        /// Index of the selected connection
+        #[clap(value_parser, value_name = "Selection")]
+        selection: String,
+
+        /// Command to use
+        #[clap(short, long, value_parser, value_name = "command", default_value_t = String::from("ssh"))]
+        command: String,
+
+        /// tunnel mode
+        #[clap(subcommand)]
+        mode: Option<TunnelMode>,
+
+        /// Additional args to use in the command
+        #[clap(short, long, value_parser, value_name = "args")]
+        args: Option<Vec<String>>,
+    },
+}
+
+#[derive(Subcommand)]
+enum TunnelMode {
+    Local {
+        /// Local port to use as one of the sides of the tunnel
+        #[clap(value_parser, value_name = "LocalPort")]
+        local_port: u16,
+
+        /// Remote host to forward traffic from the tunnel
+        #[clap(value_parser, value_name = "RemoteHost", default_value_t = String::from("127.0.0.1"))]
+        remote_host: String,
+
+        /// Remote port to forward traffic from the tunnel
+        #[clap(value_parser, value_name = "RemotePort", default_value = "80")]
+        remote_port: u16,
+    },
+    Remote {
+        /// Local port to forward traffic from the tunnel
+        #[clap(value_parser, value_name = "LocalPort")]
+        local_port: u16,
+
+        /// Local host to forward traffic from the tunnel
+        #[clap(value_parser, value_name = "LocalHost", default_value_t = String::from("127.0.0.1"))]
+        local_host: String,
+
+        /// Remote port to forward traffic to the tunnel
+        #[clap(value_parser, value_name = "RemotePort", default_value = "80")]
+        remote_port: u16,
+    },
+    Dynamic {
+        /// Local port to use as one of the sides of the tunnel
+        #[clap(value_parser, value_name = "LocalPort")]
+        local_port: u16,
     },
 }
 
@@ -149,7 +225,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 if !(config_file.exists() && config_file.is_file()) {
                     panic!("couldnt open {:#?}", config_file.as_os_str())
                 }
-                let filter = filter.clone().map(|filt| format!(".*{filt}.*")).unwrap_or(String::from(r".*"));
+                let filter = filter.clone().map(|filter_str| format!(".*{filter_str}.*")).unwrap_or(String::from(r".*"));
                 let filter = Regex::new(filter.as_str()).unwrap();
                 data.map(|data| {
                     let mut header = true;
@@ -164,36 +240,36 @@ fn main() -> Result<(), Box<dyn Error>> {
                         .collect::<Vec<Vec<String>>>()
                 })
                     .map(|data| {
-                    let mut table = Table::new();
-                    let mut header = true;
-                    for row in data {
-                        table.add_row(Row::new(
-                            row.iter()
-                                .map(|cell| {
-                                    let table_cell = Cell::new(cell.as_str());
-                                    if header {
-                                        table_cell
-                                            .with_style(Attr::Bold)
-                                            .with_style(Attr::ForegroundColor(color::GREEN))
-                                    } else {
-                                        table_cell.with_style(Attr::ForegroundColor(color::CYAN))
-                                    }
-                                })
-                                .collect::<Vec<Cell>>(),
-                        ));
-                        if header {
-                            header = false;
+                        let mut table = Table::new();
+                        let mut header = true;
+                        for row in data {
+                            table.add_row(Row::new(
+                                row.iter()
+                                    .map(|cell| {
+                                        let table_cell = Cell::new(cell.as_str());
+                                        if header {
+                                            table_cell
+                                                .with_style(Attr::Bold)
+                                                .with_style(Attr::ForegroundColor(color::GREEN))
+                                        } else {
+                                            table_cell.with_style(Attr::ForegroundColor(color::CYAN))
+                                        }
+                                    })
+                                    .collect::<Vec<Cell>>(),
+                            ));
+                            if header {
+                                header = false;
+                            }
                         }
-                    }
-                    // let table = Table::from(data.iter());
-                    table.printstd();
-                })
+                        // let table = Table::from(data.iter());
+                        table.printstd();
+                    })
             }
             Some(Commands::Use {
-                selection,
-                args,
-                command,
-            }) => data.map(|data| {
+                     selection,
+                     args,
+                     command,
+                 }) => data.map(|data| {
                 let connection_name = get_connection_name(data, selection);
                 let mut command = Command::new(command);
                 let command = command
@@ -210,10 +286,10 @@ fn main() -> Result<(), Box<dyn Error>> {
                 command.spawn().unwrap().wait().unwrap();
             }),
             Some(Commands::Export {
-                selection,
-                args,
-                command,
-            }) => data.map(|data| {
+                     selection,
+                     args,
+                     command,
+                 }) => data.map(|data| {
                 let connection_name = get_connection_name(data, selection);
                 let mut clipboard = Clipboard::new().unwrap();
                 let args_str = match args {
@@ -225,11 +301,11 @@ fn main() -> Result<(), Box<dyn Error>> {
                     .unwrap();
             }),
             Some(Commands::Copy {
-                selection,
-                from,
-                to,
-                command,
-            }) => data.map(|data| {
+                     selection,
+                     from,
+                     to,
+                     command,
+                 }) => data.map(|data| {
                 let connection_name = get_connection_name(data, selection);
                 let mut command = Command::new(command);
                 let from = from.replace("con:", format!("{}:", connection_name).as_str());
@@ -243,13 +319,13 @@ fn main() -> Result<(), Box<dyn Error>> {
                 command.spawn().unwrap().wait().unwrap();
             }),
             Some(Commands::Add {
-                host,
-                host_name,
-                user,
-                port,
-                identity_file,
-                identities_only,
-            }) => {
+                     host,
+                     host_name,
+                     user,
+                     port,
+                     identity_file,
+                     identities_only,
+                 }) => {
                 if !(config_file.exists() && config_file.is_file()) {
                     panic!("couldnt find {:#?}", config_file.as_os_str())
                 }
@@ -273,7 +349,6 @@ fn main() -> Result<(), Box<dyn Error>> {
             Some(Commands::Delete { selection }) => selection
                 .trim()
                 .parse::<usize>()
-                // .map(|selecte_index| selecte_index - 1)
                 .map(|selected_index| selected_index as i32)
                 .map(|mut selected_index| {
                     let read_file =
@@ -306,8 +381,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 let mut confirmation = false;
                                 if let Some(selected_host) = selected_host {
                                     println!(
-                                    "The host \"{selected_host}\" will be deleted, are you sure?"
-                                );
+                                        "The host \"{selected_host}\" will be deleted, are you sure?"
+                                    );
                                     println!("Type \"yes\" to confirm");
                                     let stdin = io::stdin();
                                     let mut response = String::new();
@@ -332,6 +407,69 @@ fn main() -> Result<(), Box<dyn Error>> {
                     }
                 })
                 .map_err(|e| Box::new(e) as Box<dyn Error>),
+            Some(Commands::Tunnel {
+                     selection,
+                     command,
+                     mode,
+                     args
+                 }) => {
+                match mode {
+                    None => {
+                        return Err(Box::new(TunnelModeError::new("no tunnel mode selected")));
+                    }
+                    Some(tunnel_mode) => {
+                        data.map(|data| {
+                            let connection_name = get_connection_name(data, selection);
+                            let mut command = Command::new(command);
+                            match tunnel_mode {
+                                TunnelMode::Local {
+                                    local_port,
+                                    remote_host,
+                                    remote_port
+                                } => {
+                                    command.arg("-L")
+                                        .arg(local_port.to_string())
+                                        .arg(":")
+                                        .arg(remote_host)
+                                        .arg(":")
+                                        .arg(remote_port.to_string())
+                                }
+                                TunnelMode::Remote {
+                                    local_port,
+                                    local_host ,
+                                    remote_port
+                                } => {
+                                    command.arg("-R")
+                                        .arg(remote_port.to_string())
+                                        .arg(":")
+                                        .arg(local_host)
+                                        .arg(":")
+                                        .arg(local_port.to_string())
+                                }
+                                TunnelMode::Dynamic {
+                                    local_port
+                                } => {
+                                    command.arg("-D")
+                                        .arg(local_port.to_string())
+                                }
+                            };
+                            let command = command
+                                .arg(connection_name)
+                                .stdin(Stdio::inherit())
+                                .stdout(Stdio::inherit())
+                                .stderr(Stdio::inherit());
+                            match args {
+                                None => {}
+                                Some(args) => {
+                                    command.args(args.iter());
+                                }
+                            };
+                            command.spawn().unwrap().wait().unwrap();
+                        })
+                    }
+                }.expect("Error creating tunnel");
+                return Ok(());
+            }
             None => {
                 return Ok(());
             }
