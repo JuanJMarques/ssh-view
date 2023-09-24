@@ -22,28 +22,24 @@ cp tartget/release/ssh-view <some-dir-in-your-$Path>/ssh-view
 ### Usage
 
 ```
-ssh-view 0.2.0
+ssh-view 0.4.0
 
-USAGE:
-    ssh-view.exe [OPTIONS] [SUBCOMMAND]
+Usage: ssh-view [OPTIONS] [COMMAND]
 
-OPTIONS:
-    -c, --config <FILE>    Sets a custom config file path
-    -h, --help             Print help information
-    -V, --version          Print version information
+Commands:
+  show    Shows the current configuration
+  use     launches the ssh command for the selected index of the table or the specified connection name in the table
+  export  exports the ssh command for the selected index of the table or the specified connection name in the table to the clipboard
+  copy    launches the scp command for the selected index of the table or the specified connection mane in the table, use "con:"<path> to be replaced with the connection to the selected ssh server
+  add     Adds a new entry to the ssh config file
+  delete  Deletes an entry from the ssh config file
+  tunnel  makes a ssh tunnel for the selected index of the table or the specified connection name in the table
+  help    Print this message or the help of the given subcommand(s)
 
-SUBCOMMANDS:
-    add       Adds a new entry to the ssh config file
-    copy      launches the scp command for the selected index of the table or the specified
-                  connection mane in the table, use "con:"<path> to be replaced with the connection
-                  to the selected ssh server
-    delete    Deletes an entry from the ssh config file
-    export    exports the ssh command for the selected index of the table or the specified
-                  connection name in the table to the clipboard
-    help      Print this message or the help of the given subcommand(s)
-    show      Shows the current configuration
-    use       launches the ssh command for the selected index of the table or the specified
-                  connection name in the table
+Options:
+  -c, --config <FILE>  Sets a custom config file path
+  -h, --help           Print help
+  -V, --version        Print version
 ```
 
 list ssh servers
@@ -122,4 +118,60 @@ $ssh-view show
 +-------+----------+--------------+--------+
 | 1     | test2    | 192.168.90.2 | ubuntu |
 +-------+----------+--------------+--------+
+```
+
+make a tunnel
+```
+ssh-view tunnel [OPTIONS] <Selection> [COMMAND]
+
+Commands:
+  local    
+  remote   
+  dynamic  
+  help     Print this message or the help of the given subcommand(s)
+
+Arguments:
+  <Selection>  Index of the selected connection
+
+Options:
+  -c, --command <command>  Command to use [default: ssh]
+  -a, --args <args>        Additional args to use in the command
+  -h, --help               Print help
+```
+
+make remote tunnel
+```
+Usage: ssh-view tunnel <Selection> local <LocalPort> [RemoteHost] [RemotePort]
+
+Arguments:
+  <LocalPort>   Local port to use as one of the sides of the tunnel
+  [RemoteHost]  Remote host to forward traffic from the tunnel [default: 127.0.0.1]
+  [RemotePort]  Remote port to forward traffic from the tunnel [default: 80]
+
+Options:
+  -h, --help  Print help
+```
+
+make a remote tunnel
+```
+Usage: ssh-view tunnel <Selection> remote <LocalPort> [LocalHost] [RemotePort]
+
+Arguments:
+  <LocalPort>   Local port to forward traffic from the tunnel
+  [LocalHost]   Local host to forward traffic from the tunnel [default: 127.0.0.1]
+  [RemotePort]  Remote port to forward traffic to the tunnel [default: 80]
+
+Options:
+  -h, --help  Print help
+```
+
+make a dynamic tunnel
+```
+Usage: ssh-view tunnel <Selection> dynamic <LocalPort>
+
+Arguments:
+  <LocalPort>  Local port to use as one of the sides of the tunnel
+
+Options:
+  -h, --help  Print help
 ```
