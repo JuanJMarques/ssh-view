@@ -428,11 +428,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     remote_port
                                 } => {
                                     command.arg("-L")
-                                        .arg(local_port.to_string())
-                                        .arg(":")
-                                        .arg(remote_host)
-                                        .arg(":")
-                                        .arg(remote_port.to_string())
+                                        .arg(format!("{}:{}:{}",local_port, remote_host,remote_port))
                                 }
                                 TunnelMode::Remote {
                                     local_port,
@@ -440,11 +436,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                                     remote_port
                                 } => {
                                     command.arg("-R")
-                                        .arg(remote_port.to_string())
-                                        .arg(":")
-                                        .arg(local_host)
-                                        .arg(":")
-                                        .arg(local_port.to_string())
+                                        .arg(format!("{}:{}:{}",remote_port, local_host,local_port))
                                 }
                                 TunnelMode::Dynamic {
                                     local_port
